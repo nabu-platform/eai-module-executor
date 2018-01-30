@@ -59,7 +59,13 @@ public class ExecutorArtifact extends JAXBArtifact<ExecutorConfiguration> implem
 			if (poolSize == null) {
 				poolSize = Runtime.getRuntime().availableProcessors();
 			}
-			executors = Executors.newFixedThreadPool(poolSize, threadFactory);
+			// if we explicitly set it to size 0, it is unlimited
+			if (poolSize == 0) {
+				executors = Executors.newCachedThreadPool(threadFactory);
+			}
+			else {
+				executors = Executors.newFixedThreadPool(poolSize, threadFactory);
+			}
 		}
 	}
 
