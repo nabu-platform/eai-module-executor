@@ -1,6 +1,7 @@
 package be.nabu.eai.module.misc.executor;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -16,6 +17,7 @@ import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.services.ServiceRunnable;
 import be.nabu.libs.services.ServiceRuntime;
+import be.nabu.libs.services.ServiceUtils;
 import be.nabu.libs.services.api.ExecutionContext;
 import be.nabu.libs.services.api.Service;
 import be.nabu.libs.services.api.ServiceResult;
@@ -80,7 +82,11 @@ public class ExecutorArtifact extends JAXBArtifact<ExecutorConfiguration> implem
 
 	@Override
 	public Future<ServiceResult> run(Service service, ExecutionContext context, ComplexContent input, ServiceRunnableObserver...observers) {
-		return executors.submit((Callable<ServiceResult>) new ServiceRunnable(new ServiceRuntime(service, context), input, observers));
+		ServiceRuntime runtime = new ServiceRuntime(service, context);
+		// prevent reusing the thread local global, the service runtime will run in a different thread
+		runtime.setContext(new HashMap<String, Object>());
+		ServiceUtils.setServiceContext(runtime, ServiceUtils.getServiceContext(ServiceRuntime.getRuntime()));
+		return executors.submit((Callable<ServiceResult>) new ServiceRunnable(runtime, input, observers));
 	}
 	
 }
