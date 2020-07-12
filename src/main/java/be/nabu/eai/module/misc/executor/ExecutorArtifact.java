@@ -91,6 +91,9 @@ public class ExecutorArtifact extends JAXBArtifact<ExecutorConfiguration> implem
 		// prevent reusing the thread local global, the service runtime will run in a different thread
 		runtime.setContext(new HashMap<String, Object>());
 		ServiceUtils.setServiceContext(runtime, ServiceUtils.getServiceContext(ServiceRuntime.getRuntime()));
+		if (getConfig().isDisableAuditing()) {
+			runtime.getContext().put("audit.disabled", true);
+		}
 		return executors.submit((Callable<ServiceResult>) new Callable<ServiceResult>() {
 			@Override
 			public ServiceResult call() throws Exception {
