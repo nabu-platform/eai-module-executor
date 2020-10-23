@@ -90,7 +90,19 @@ public class ExecutorArtifact extends JAXBArtifact<ExecutorConfiguration> implem
 		ServiceRuntime runtime = new ServiceRuntime(service, context);
 		// prevent reusing the thread local global, the service runtime will run in a different thread
 		runtime.setContext(new HashMap<String, Object>());
-		ServiceUtils.setServiceContext(runtime, ServiceUtils.getServiceContext(ServiceRuntime.getRuntime()));
+		// @2020-08-18: added explicit setting of the service context, because if this is run by the "runInPool" (cause someone indicated $any), then there is no thread local for the service context
+		// we "should" try and reuse the service context that originally triggered it but we currently don't have access to it
+		// because we very rarely do this, it is currently more of a workaround than a full fix
+		String serviceContext = ServiceUtils.getServiceContext(ServiceRuntime.getRuntime(), false);
+		if (serviceContext == null) {
+			if (service instanceof DefinedService) {
+				serviceContext = ((DefinedService) service).getId();
+			}
+			else {
+				throw new IllegalArgumentException("Could not run service because there is no service context");
+			}
+		}
+		ServiceUtils.setServiceContext(runtime, serviceContext);
 		if (getConfig().isDisableAuditing()) {
 			runtime.getContext().put("audit.disabled", true);
 		}
