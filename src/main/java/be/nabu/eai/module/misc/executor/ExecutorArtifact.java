@@ -14,8 +14,10 @@ import org.slf4j.LoggerFactory;
 import be.nabu.eai.repository.RepositoryThreadFactory;
 import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
+import be.nabu.libs.artifacts.api.OfflineableArtifact;
 import be.nabu.libs.artifacts.api.StartableArtifact;
 import be.nabu.libs.artifacts.api.StoppableArtifact;
+import be.nabu.libs.artifacts.api.TwoPhaseStoppableArtifact;
 import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.services.ServiceRunnable;
@@ -29,7 +31,7 @@ import be.nabu.libs.services.api.ServiceRunnableObserver;
 import be.nabu.libs.services.api.ServiceRunner;
 import be.nabu.libs.types.api.ComplexContent;
 
-public class ExecutorArtifact extends JAXBArtifact<ExecutorConfiguration> implements StartableArtifact, StoppableArtifact, ServiceRunner {
+public class ExecutorArtifact extends JAXBArtifact<ExecutorConfiguration> implements StartableArtifact, StoppableArtifact, ServiceRunner, OfflineableArtifact, TwoPhaseStoppableArtifact {
 
 	private ExecutorService executors;
 	private Logger logger = LoggerFactory.getLogger(getClass());
@@ -40,7 +42,7 @@ public class ExecutorArtifact extends JAXBArtifact<ExecutorConfiguration> implem
 
 	@Override
 	public void stop() throws IOException {
-		if (isStarted()) {
+		if (executors != null) {
 			executors.shutdown();
 			try {
 				executors.awaitTermination(365, TimeUnit.DAYS);
@@ -118,6 +120,37 @@ public class ExecutorArtifact extends JAXBArtifact<ExecutorConfiguration> implem
 				}
 			}
 		});
+	}
+
+	/**
+	 * We want the executor service to go "offline", in that we want the offlining process to wait until all queued tasks are done
+	 * We then want to restart the executors, once everything is offline, there might still be a valid usecase to execute services on the executor
+	 * So we immediately restart it for offline tasks
+	 * 
+	 * That means when we bring it back online, we don't actually have to do anything.
+	 * It also means we want the executor to spin up when we are doing an offline start
+	 */
+	@Override
+	public void online() throws IOException {
+		// do nothing
+	}
+
+	@Override
+	public void offline() throws IOException {
+		stop();
+		start();
+	}
+
+	@Override
+	public void startOffline() throws IOException {
+		start();
+	}
+
+	@Override
+	public void halt() {
+		if (executors != null) {
+			executors.shutdown();
+		}
 	}
 	
 }
