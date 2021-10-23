@@ -1,0 +1,16 @@
+result = xml.objectify(file.read("executor.xml"))
+
+tag("Thread Pool")
+
+result/poolSize = parameter(
+	name: "poolSize",
+	category: "Basic",
+	title: null,
+	description: "The size of this thread pool",
+	type: null,
+	encrypted: false,
+	optional: true,
+	default: "The amount of available processors",
+	raw: result/poolSize)/current
+
+file.write("executor.xml", xml.stringify(result))
