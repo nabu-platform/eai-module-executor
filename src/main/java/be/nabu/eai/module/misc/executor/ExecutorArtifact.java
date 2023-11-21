@@ -6,6 +6,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
@@ -19,6 +20,8 @@ import be.nabu.libs.artifacts.api.StartableArtifact;
 import be.nabu.libs.artifacts.api.StoppableArtifact;
 import be.nabu.libs.artifacts.api.TwoPhaseStoppableArtifact;
 import be.nabu.libs.authentication.api.Token;
+import be.nabu.libs.metrics.api.MetricGauge;
+import be.nabu.libs.metrics.api.MetricInstance;
 import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.services.ServiceRunnable;
 import be.nabu.libs.services.ServiceRuntime;
@@ -60,6 +63,45 @@ public class ExecutorArtifact extends JAXBArtifact<ExecutorConfiguration> implem
 		return isStarted() ? executors : null;
 	}
 
+	private void startMetrics() {
+		MetricInstance metrics = getRepository().getMetricInstance(getId());
+		if (metrics != null && executors instanceof ThreadPoolExecutor) {
+			final ThreadPoolExecutor pool = (ThreadPoolExecutor) executors;
+			metrics.set("activeThreads", new MetricGauge() {
+				@Override
+				public long getValue() {
+					return pool.getActiveCount();
+				}
+			});
+			metrics.set("currentPoolSize", new MetricGauge() {
+				@Override
+				public long getValue() {
+					return pool.getPoolSize();
+				}
+			});
+			metrics.set("largestPoolSize", new MetricGauge() {
+				@Override
+				public long getValue() {
+					return pool.getLargestPoolSize();
+				}
+			});
+			metrics.set("taskCount", new MetricGauge() {
+				@Override
+				public long getValue() {
+					return pool.getTaskCount();
+				}
+			});
+			metrics.set("queueSize", new MetricGauge() {
+				@Override
+				public long getValue() {
+					return pool.getQueue().size();
+				}
+			});
+			metrics.set("maximumPoolSize", pool.getMaximumPoolSize());
+			metrics.set("corePoolSize", pool.getCorePoolSize());
+		}
+	}
+	
 	@Override
 	public void start() throws IOException {
 		if (executors == null || executors.isShutdown()) {
@@ -75,6 +117,7 @@ public class ExecutorArtifact extends JAXBArtifact<ExecutorConfiguration> implem
 			else {
 				executors = Executors.newFixedThreadPool(poolSize, threadFactory);
 			}
+			startMetrics();
 		}
 	}
 
